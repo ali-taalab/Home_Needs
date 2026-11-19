@@ -29,3 +29,8 @@ npx eas-cli@latest build -p ios       # needs an Apple Developer account
 
 ## Customize
 The categories and items are in `src/catalog.ts`. Edit that file to match your local supermarket.
+
+## Install without a computer
+- **Android:** every push builds `HomeNeeds.apk` and attaches it to a GitHub Release. On the phone, open the Releases page, download the APK and install it.
+- **iPhone:** every push publishes the web app to GitHub Pages at `https://ali-taalab.github.io/Home_Needs/`. Open it in Safari, then tap Share → **Add to Home Screen**.
+  - One-time setup: the repo must be public (or the account on GitHub Pro), and Pages must be turned on under **Settings → Pages → Source: GitHub Actions**.
