@@ -7,7 +7,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.homeneeds.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -16,10 +17,16 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.homeneeds.app",
+      "versionCode": 1
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Home Needs",
+      "shortName": "Home Needs",
+      "themeColor": "#1F8A4C",
+      "backgroundColor": "#F6F7F4"
     }
   }
 }
