@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Product } from './catalog';
 
 export const colors = {
@@ -12,6 +12,56 @@ export const colors = {
   primarySoft: '#E3F4E9',
   danger: '#C8433A',
 };
+
+export type MenuOption = { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void };
+type Menu = { title: string; message?: string; options: MenuOption[] };
+let showMenuImpl: ((m: Menu | null) => void) | null = null;
+
+/** Native Alert on phones; an in-app sheet on the web (where Alert does nothing). */
+export function showMenu(title: string, message: string | undefined, options: MenuOption[]) {
+  if (Platform.OS !== 'web') Alert.alert(title, message, options);
+  else showMenuImpl?.({ title, message, options });
+}
+
+export function MenuHost() {
+  const [menu, setMenu] = useState<Menu | null>(null);
+  useEffect(() => {
+    showMenuImpl = setMenu;
+    return () => {
+      showMenuImpl = null;
+    };
+  }, []);
+  if (!menu) return null;
+  const close = () => setMenu(null);
+  return (
+    <Modal transparent animationType="fade" visible onRequestClose={close}>
+      <Pressable style={s.backdrop} onPress={close}>
+        <Pressable style={s.sheet} onPress={() => {}}>
+          <Text style={s.sheetTitle}>{menu.title}</Text>
+          {menu.message ? (
+            <ScrollView style={{ maxHeight: 320 }}>
+              <Text selectable style={s.sheetMsg}>
+                {menu.message}
+              </Text>
+            </ScrollView>
+          ) : null}
+          {menu.options.map((o) => (
+            <Pressable
+              key={o.text}
+              style={({ pressed }) => [s.sheetBtn, pressed && { opacity: 0.6 }]}
+              onPress={() => {
+                close();
+                o.onPress?.();
+              }}
+            >
+              <Text style={[s.sheetBtnTxt, o.style === 'destructive' && { color: colors.danger }, o.style === 'cancel' && { color: colors.sub, fontWeight: '500' }]}>{o.text}</Text>
+            </Pressable>
+          ))}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
 
 export function Stepper({ qty, onChange }: { qty: number; onChange: (q: number) => void }) {
   if (qty === 0) {
@@ -72,6 +122,12 @@ export function Button({ title, onPress, variant = 'primary', disabled }: { titl
 }
 
 export const s = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32, gap: 4 },
+  sheetTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 },
+  sheetMsg: { fontSize: 15, color: colors.text, lineHeight: 22, marginBottom: 8 },
+  sheetBtn: { paddingVertical: 14, borderTopWidth: 1, borderColor: colors.line },
+  sheetBtnTxt: { fontSize: 16, color: colors.primary, fontWeight: '600', textAlign: 'center' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

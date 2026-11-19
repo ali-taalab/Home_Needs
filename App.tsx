@@ -5,7 +5,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { categoryById } from './src/catalog';
 import { BasketScreen, CategoryScreen, ListDetailScreen, ListsScreen, ShopScreen } from './src/screens';
 import { StoreProvider, useStore } from './src/store';
-import { colors } from './src/ui';
+import { colors, MenuHost } from './src/ui';
 
 type Tab = 'shop' | 'basket' | 'lists';
 
@@ -119,6 +119,7 @@ export default function App() {
         <View style={[styles.flex, { backgroundColor: colors.bg }]}>
           <StatusBar style="dark" />
           <Main />
+          <MenuHost />
         </View>
       </StoreProvider>
     </SafeAreaProvider>

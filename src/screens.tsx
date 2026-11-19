@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, ScrollView, SectionList, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Platform, Pressable, ScrollView, SectionList, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CATEGORIES, categoryById } from './catalog';
 import { listToText, ShoppingList, useStore } from './store';
-import { Button, colors, ProductRow } from './ui';
+import { Button, colors, ProductRow, showMenu } from './ui';
 
 /* ---------------- Shop: categories + search ---------------- */
 
@@ -98,7 +98,7 @@ export function CategoryScreen({ categoryId }: { categoryId: string }) {
           onLongPress={
             item.custom
               ? () =>
-                  Alert.alert('Delete item', `Remove “${item.name}” from this category?`, [
+                  showMenu('Delete item', `Remove “${item.name}” from this category?`, [
                     { text: 'Cancel', style: 'cancel' },
                     { text: 'Delete', style: 'destructive', onPress: () => store.removeCustomProduct(item.id) },
                   ])
@@ -173,7 +173,7 @@ export function BasketScreen({ onCreated, goShop }: { onCreated: (listId: string
           title="Clear"
           variant="danger"
           onPress={() =>
-            Alert.alert('Clear basket', 'Remove all items from the basket?', [
+            showMenu('Clear basket', 'Remove all items from the basket?', [
               { text: 'Cancel', style: 'cancel' },
               { text: 'Clear', style: 'destructive', onPress: store.clearBasket },
             ])
@@ -255,10 +255,25 @@ export function ListDetailScreen({ list, onDeleted, onEdit }: { list: ShoppingLi
     return out;
   }, [list.items]);
 
-  const share = () => Share.share({ message: listToText(list), title: list.title }).catch(() => {});
+  const share = () => {
+    const text = listToText(list);
+    if (Platform.OS !== 'web') {
+      Share.share({ message: text, title: list.title }).catch(() => {});
+      return;
+    }
+    const fallback = () => showMenu('Your list', 'Select and copy the text below:\n\n' + text, [{ text: 'Done' }]);
+    try {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => showMenu('List copied ✅', 'Paste it into WhatsApp, Notes or Messages.', [{ text: 'OK' }]))
+        .catch(fallback);
+    } catch {
+      fallback();
+    }
+  };
 
   const more = () =>
-    Alert.alert(list.title, undefined, [
+    showMenu(list.title, undefined, [
       { text: 'Uncheck all', onPress: () => store.resetList(list.id) },
       {
         text: 'Add unchecked items to basket',
@@ -307,7 +322,7 @@ export function ListDetailScreen({ list, onDeleted, onEdit }: { list: ShoppingLi
         <Button title="More…" variant="ghost" onPress={more} />
         <View style={{ width: 10 }} />
         <View style={{ flex: 2.2, flexDirection: 'row' }}>
-          <Button title="📤 Share / Export list" onPress={share} />
+          <Button title={Platform.OS === 'web' ? '📋 Copy list' : '📤 Share / Export list'} onPress={share} />
         </View>
       </View>
     </View>
