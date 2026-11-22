@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, ScrollView, SectionList, Share, StyleSheet, Text, TextInput, View } from 'react-native';
-import { CATEGORIES, categoryById } from './catalog';
+import { CATEGORIES, categoryById, subsOf } from './catalog';
+
+const MY_ITEMS = 'My items';
 import { listToText, ShoppingList, useStore } from './store';
 import { Button, colors, ProductRow, showMenu } from './ui';
 
@@ -10,7 +12,19 @@ export function ShopScreen({ openCategory }: { openCategory: (id: string) => voi
   const store = useStore();
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
-  const results = useMemo(() => (q ? store.products.filter((p) => p.name.toLowerCase().includes(q)) : []), [q, store.products]);
+  const results = useMemo(() => {
+    if (!q) return [];
+    const words = q.split(/\s+/);
+    return store.products.filter((p) => {
+      const hay = `${p.name} ${p.sub ?? ''}`.toLowerCase();
+      return words.every((w) => hay.includes(w));
+    });
+  }, [q, store.products]);
+  const itemCount = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of store.products) m[p.categoryId] = (m[p.categoryId] ?? 0) + 1;
+    return m;
+  }, [store.products]);
   const countByCat = useMemo(() => {
     const m: Record<string, number> = {};
     for (const pid of Object.keys(store.basket)) {
@@ -26,7 +40,7 @@ export function ShopScreen({ openCategory }: { openCategory: (id: string) => voi
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="🔍  Search items…"
+          placeholder="🔍  Search 1,000+ items…"
           placeholderTextColor={colors.sub}
           style={st.search}
           clearButtonMode="while-editing"
@@ -34,6 +48,7 @@ export function ShopScreen({ openCategory }: { openCategory: (id: string) => voi
       </View>
       {q ? (
         <FlatList
+          key="search"
           contentContainerStyle={st.pad}
           data={results}
           keyExtractor={(p) => p.id}
@@ -42,7 +57,7 @@ export function ShopScreen({ openCategory }: { openCategory: (id: string) => voi
           renderItem={({ item }) => (
             <ProductRow
               product={item}
-              subtitle={categoryById(item.categoryId)?.name}
+              subtitle={[categoryById(item.categoryId)?.name, item.sub].filter(Boolean).join(' · ')}
               qty={store.basket[item.id] ?? 0}
               onChange={(n) => store.setQty(item.id, n)}
             />
@@ -50,6 +65,7 @@ export function ShopScreen({ openCategory }: { openCategory: (id: string) => voi
         />
       ) : (
         <FlatList
+          key="grid"
           contentContainerStyle={st.pad}
           data={CATEGORIES}
           numColumns={2}
@@ -63,7 +79,10 @@ export function ShopScreen({ openCategory }: { openCategory: (id: string) => voi
                 </View>
               ) : null}
               <Text style={st.catEmoji}>{item.emoji}</Text>
-              <Text style={st.catName}>{item.name}</Text>
+              <View>
+                <Text style={st.catName}>{item.name}</Text>
+                <Text style={st.catCount}>{itemCount[item.id] ?? 0} items</Text>
+              </View>
             </Pressable>
           )}
         />
@@ -75,7 +94,19 @@ export function ShopScreen({ openCategory }: { openCategory: (id: string) => voi
 export function CategoryScreen({ categoryId }: { categoryId: string }) {
   const store = useStore();
   const [newName, setNewName] = useState('');
-  const items = store.products.filter((p) => p.categoryId === categoryId);
+  const [filter, setFilter] = useState<string | null>(null);
+  const subs = useMemo(() => {
+    const list = subsOf(categoryId);
+    return store.customProducts.some((p) => p.categoryId === categoryId) ? [...list, MY_ITEMS] : list;
+  }, [categoryId, store.customProducts]);
+
+  const sections = useMemo(() => {
+    const items = store.products.filter((p) => p.categoryId === categoryId);
+    return subs
+      .filter((sub) => !filter || filter === sub)
+      .map((sub) => ({ title: sub, data: items.filter((p) => (p.sub ?? MY_ITEMS) === sub) }))
+      .filter((sec) => sec.data.length);
+  }, [store.products, categoryId, subs, filter]);
 
   const add = () => {
     if (!newName.trim()) return;
@@ -84,45 +115,60 @@ export function CategoryScreen({ categoryId }: { categoryId: string }) {
   };
 
   return (
-    <FlatList
-      contentContainerStyle={st.pad}
-      data={items}
-      keyExtractor={(p) => p.id}
-      keyboardShouldPersistTaps="handled"
-      renderItem={({ item }) => (
-        <ProductRow
-          product={item}
-          qty={store.basket[item.id] ?? 0}
-          onChange={(n) => store.setQty(item.id, n)}
-          subtitle={item.custom ? 'My item · long-press to delete' : undefined}
-          onLongPress={
-            item.custom
-              ? () =>
-                  showMenu('Delete item', `Remove “${item.name}” from this category?`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: () => store.removeCustomProduct(item.id) },
-                  ])
-              : undefined
-          }
-        />
-      )}
-      ListFooterComponent={
-        <View style={st.addRow}>
-          <TextInput
-            value={newName}
-            onChangeText={setNewName}
-            placeholder="Add your own item…"
-            placeholderTextColor={colors.sub}
-            style={[st.search, { flex: 1 }]}
-            onSubmitEditing={add}
-            returnKeyType="done"
+    <View style={{ flex: 1 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={st.chipBar} contentContainerStyle={st.chipRow}>
+        {[null, ...subs].map((sub) => {
+          const on = filter === sub;
+          return (
+            <Pressable key={sub ?? 'all'} onPress={() => setFilter(sub)} style={[st.chip, on && st.chipOn]}>
+              <Text style={[st.chipTxt, on && st.chipTxtOn]}>{sub ?? 'All'}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <SectionList
+        contentContainerStyle={st.pad}
+        sections={sections}
+        keyExtractor={(p) => p.id}
+        keyboardShouldPersistTaps="handled"
+        stickySectionHeadersEnabled={false}
+        initialNumToRender={20}
+        renderSectionHeader={({ section }) => <Text style={st.section}>{section.title}</Text>}
+        renderItem={({ item }) => (
+          <ProductRow
+            product={item}
+            qty={store.basket[item.id] ?? 0}
+            onChange={(n) => store.setQty(item.id, n)}
+            subtitle={item.custom ? 'My item · long-press to delete' : undefined}
+            onLongPress={
+              item.custom
+                ? () =>
+                    showMenu('Delete item', `Remove “${item.name}” from this category?`, [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: () => store.removeCustomProduct(item.id) },
+                    ])
+                : undefined
+            }
           />
-          <Pressable style={st.addBtn} onPress={add}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Add</Text>
-          </Pressable>
-        </View>
-      }
-    />
+        )}
+        ListFooterComponent={
+          <View style={st.addRow}>
+            <TextInput
+              value={newName}
+              onChangeText={setNewName}
+              placeholder="Can't find it? Add your own item…"
+              placeholderTextColor={colors.sub}
+              style={[st.search, { flex: 1 }]}
+              onSubmitEditing={add}
+              returnKeyType="done"
+            />
+            <Pressable style={st.addBtn} onPress={add}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Add</Text>
+            </Pressable>
+          </View>
+        }
+      />
+    </View>
   );
 }
 
@@ -331,10 +377,17 @@ export function ListDetailScreen({ list, onDeleted, onEdit }: { list: ShoppingLi
 
 const st = StyleSheet.create({
   pad: { padding: 16 },
+  chipBar: { flexGrow: 0, flexShrink: 0, minHeight: 54, borderBottomWidth: 1, borderColor: colors.line, backgroundColor: colors.card },
+  chipRow: { paddingHorizontal: 12, paddingVertical: 10, gap: 8, alignItems: 'center' },
+  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18, backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.line },
+  chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipTxt: { color: colors.text, fontWeight: '600', fontSize: 14 },
+  chipTxtOn: { color: '#fff' },
   searchWrap: { paddingHorizontal: 16, paddingTop: 12 },
   search: { backgroundColor: colors.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, borderWidth: 1, borderColor: colors.line, color: colors.text },
-  cat: { flex: 1, aspectRatio: 1.15, borderRadius: 18, padding: 14, marginBottom: 12, justifyContent: 'space-between' },
+  cat: { flex: 1, aspectRatio: 1, borderRadius: 18, padding: 14, marginBottom: 12, justifyContent: 'space-between' },
   catEmoji: { fontSize: 40 },
+  catCount: { fontSize: 12, color: colors.sub, marginTop: 2 },
   catName: { fontSize: 15, fontWeight: '700', color: colors.text },
   catBadge: { position: 'absolute', top: 10, right: 10, backgroundColor: colors.primary, borderRadius: 12, minWidth: 24, height: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   badgeTxt: { color: '#fff', fontWeight: '700', fontSize: 12 },

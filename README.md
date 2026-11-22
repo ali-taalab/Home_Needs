@@ -3,7 +3,7 @@
 A shopping list app for Android and iPhone that you browse like a supermarket app. You pick items from supermarket categories, and instead of placing a delivery order the app gives you a **checklist** to take to the supermarket.
 
 ## Features
-- **Shop**: 17 supermarket categories (Fruits & Vegetables, Dairy, Bakery, Meat, Cleaning, Personal Care, Baby, Pets…) with ~150 common items, plus search.
+- **Shop**: 23 hypermarket departments modelled on Egyptian stores like Carrefour, Fathallah and Seoudi, with ~1,200 items in sub-sections (e.g. Dairy → Cheese: Roumi, Areesh, Istanbuli…), filter chips and search.
 - **Add your own items** in any category. Long-press an item you added to delete it.
 - **Basket**: change quantities with − / +, then tap **Create checklist**.
 - **Checklists**: items are grouped in aisle order. Tick them off as you shop and a progress bar shows how many you have.
